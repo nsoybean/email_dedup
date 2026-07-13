@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: parsing
     content: "Phase 2: implement and validate parsing across the eval corpus"
-    status: pending
+    status: completed
   - id: dedup-hierarchy
     content: "Phases 3-4: implement deduplication and order-independent hierarchy logic"
     status: pending
