@@ -1,0 +1,11 @@
+---
+description: Keep git commit messages free of Cursor/AI attribution trailers
+alwaysApply: true
+---
+
+# Git commits
+
+- Do **not** add `Co-authored-by`, `Made-with`, `Signed-off-by: Cursor`, or any other Cursor/AI attribution trailer to commit messages or PR bodies.
+- Do **not** pass `--trailer` (or equivalent) that attributes the commit to Cursor/an agent.
+- Commit messages must contain only the subject/body you write (e.g. `git commit -m "message"`).
+- If a trailer was injected anyway, amend or rewrite the commit to remove it before finishing — do not leave it for the user.
