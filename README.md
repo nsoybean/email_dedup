@@ -141,13 +141,13 @@ python scripts/evaluate.py hierarchy --data-dir data/eval --order child_first
 python scripts/evaluate.py hierarchy --data-dir data/eval --order random --seed 1
 ```
 
-Expect every run to end with `status=PASS` (and hierarchy `order_independent=True`).
+Expect every run to end with `status=PASS`.
 
-| Mode | Measures |
+| Mode | What it checks |
 |---|---|
-| `parsing` | Parse failures, count vs gold depth, variant sequences, parent rule — [details](DESIGN.md#parsing-validation-scriptsevaluatepy-parsing) |
-| `dedup` | Pairwise precision / recall / F1 — [details](DESIGN.md#dedup-validation-scriptsevaluatepy-dedup) |
-| `hierarchy` | Edge F1; order-independence — [details](DESIGN.md#hierarchy-validation-scriptsevaluatepy-hierarchy) |
+| `parsing` | Can we pull Message-IDs out of each file correctly? (count matches filename depth; near-dup variants share the same ID list; a child’s IDs without the newest match its parent file) — [details](DESIGN.md#parsing-validation-scriptsevaluatepy-parsing) |
+| `dedup` | Do same threads share one `canonical_id`? (hash of the ordered Message-ID list); different threads stay separate — [details](DESIGN.md#dedup-validation-scriptsevaluatepy-dedup) |
+| `hierarchy` | Are parent→child links between canonicals correct vs eval filenames, and stable no matter ingest order? — [details](DESIGN.md#hierarchy-validation-scriptsevaluatepy-hierarchy) |
 
 Gold labels: [DESIGN.md](DESIGN.md#eval-filenames-are-gold-labels-only).
 
