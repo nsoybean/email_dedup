@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: persistence
     content: "Phase 5: add PostgreSQL persistence, migrations, queue claiming, and integration tests"
-    status: pending
+    status: completed
   - id: api-workers
     content: "Phases 6-7: add FastAPI, the loader, concurrent workers, and Docker Compose"
     status: pending

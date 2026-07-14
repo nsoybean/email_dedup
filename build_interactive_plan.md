@@ -150,9 +150,10 @@ python scripts/evaluate.py hierarchy --data-dir data/eval --order reverse
 
 ### Run and inspect
 ```bash
+source .venv/bin/activate
 docker compose up -d postgres
-uv run alembic upgrade head
-uv run pytest tests/integration -v
+alembic upgrade head
+pytest tests/integration -v
 ```
 
 Inspect tables and claimed jobs through `psql` or a database client.

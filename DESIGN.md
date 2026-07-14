@@ -160,16 +160,67 @@ else:
 ```
 
 - Hierarchy uses observed-only nodes and `expected_parent_id = hash(message_ids[1:])`.
-Unresolved parents stay pending until that canonical is observed.
+  Unresolved parents stay pending until that canonical is observed.
 
+### Assignment lookups (direct neighbors only)
 
+The required queries are one-hop, not full-chain walks:
+
+| Query | Cost |
+|---|---|
+| raw doc → canonical | 1 indexed lookup |
+| canonical → raw docs | 1 indexed lookup |
+| canonical → parent / children | 1 JOIN / 1 indexed lookup each |
+
+A long chain (`1 → 1_0 → 1_0_0 → …`) does **not** need multiple queries for the
+assignment API: ask for parent of `1_0_0` once, or children of `1_0` once.
+Walking the whole ancestry would be recursive/app-side, and is out of scope.
+
+### Ingestion / queue (prototype)
+
+- Directory loader submits each file as `document_id` + **content payload**.
+- `ingestion_jobs` stores that payload (not a disk path). Workers claim jobs and
+  process bytes from the DB row, so they need no shared filesystem.
+- PostgreSQL is both persistence and the durable job queue
+  (`FOR UPDATE SKIP LOCKED`). Dirty-prototype choice: fewer moving parts than
+  Redis/SQS/Kafka.
+
+### Persistence (Phase 5)
+
+PostgreSQL tables:
+
+```text
+ingestion_jobs(id, document_id, payload, content_hash, status, attempts, error, ...)
+raw_documents(document_id PK, canonical_id FK, content_hash, ...)
+canonical_threads(canonical_id PK, message_ids[], expected_parent_id NULLABLE)
+```
+
+Parent resolution at query time:
+
+```sql
+-- resolved parent (empty if not yet observed)
+SELECT p.canonical_id
+FROM canonical_threads c
+LEFT JOIN canonical_threads p ON p.canonical_id = c.expected_parent_id
+WHERE c.canonical_id = :id;
+
+-- children
+SELECT canonical_id FROM canonical_threads
+WHERE expected_parent_id = :id;
+```
+
+Workers claim with `SELECT ... FOR UPDATE SKIP LOCKED`. Job rows store full
+payload so workers need no shared filesystem.
 
 ## Tradeoffs
 
-- Message-ID equality is simple and fits the supplied data, but it is not a
-general near-dedup strategy if Message-IDs are missing or mutated.
-
-
+| Prototype choice | Production alternative |
+|---|---|
+| Message-ID sequence equality for near-dedup | Fuzzy matching when Message-IDs are missing or mutated |
+| PostgreSQL as DB **and** job queue (`SKIP LOCKED`) | Dedicated broker (Redis Streams / SQS / Kafka); Postgres for state |
+| Full content payload on `ingestion_jobs` | Object store (S3/GCS) + queue object keys only |
+| Observed-only parents (no placeholders) | Optional synthetic ancestor rows if product needs them earlier |
+| Direct parent/child API only | Full ancestry / path walk API if required |
 
 ## Assumptions
 

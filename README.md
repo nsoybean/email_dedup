@@ -13,6 +13,28 @@ source .venv/bin/activate
 pip install -e . pytest ruff
 ```
 
+## PostgreSQL
+
+Requires Docker Desktop running:
+
+```bash
+docker compose up -d postgres
+source .venv/bin/activate
+alembic upgrade head
+pytest tests/integration -v
+```
+
+Default URL: `postgresql+psycopg://email:email@localhost:5433/email_dedup`
+(override with `DATABASE_URL`).
+
+| Integration test | What it checks |
+|---|---|
+| `test_enqueue_claim_and_process` | Enqueue → claim → process → assignment lookups |
+| `test_idempotent_same_content_and_conflict` | Same content is idempotent; different content conflicts |
+| `test_child_first_parent_resolves_on_query` | Parent unresolved until observed; then JOIN resolves |
+| `test_variants_share_canonical` | Near-duplicates share one canonical and doc set |
+| `test_concurrent_claims_are_unique` | Concurrent workers never double-claim the same job |
+
 ## Validate parsing
 
 ```bash
