@@ -222,15 +222,6 @@ flowchart LR
   workers -->|"fetch object"| s3
   workers -->|"parse / dedup / hierarchy"| pg
 ```
-
-| Concern | This prototype | Production sketch |
-|---|---|---|
-| Where bytes live | `ingestion_jobs.payload` in Postgres | Object store; job holds a key/ref |
-| How work is dispatched | Workers poll Postgres with `SKIP LOCKED` | Broker (e.g. Redis) claim/ack; high-throughput queue |
-| What Postgres does | Queue **and** canonical store | Canonical store (+ maybe job status); not the hot queue |
-| Scaling workers | Works until queue polling / row locks contend | Scale consumers independently of DB write path |
-| Why change | Fewer services to run | Avoid bloating tables, long lock waits, and mixing OLTP state with queue traffic |
-
 Parse / dedup / hierarchy stay the same; production swaps Postgres queue polling
 for a Redis (or SQS/Kafka) broker — only how workers claim work changes.
 
