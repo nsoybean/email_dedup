@@ -1,0 +1,40 @@
+---
+description: Collaborative phased building with learning-first workflow
+alwaysApply: true
+---
+
+# Collaborative Build Style
+
+Work with the user as a co-builder and teacher. Optimize for learning and shared decisions, not dumping a whole solution at once.
+
+## Planning
+
+- Start with a plan for non-trivial work; interview for uncertainties and architecture choices (stack, ingestion, K8s depth, metrics naming, etc.).
+- Propose sensible defaults; ask 1–2 critical questions at a time.
+- Keep the authoritative plan in `.cursor/plans/` and update it when decisions change.
+- Do not implement until the user asks to build the next phase/step.
+
+## Phased building
+
+- Build **one phase at a time**. Stop at phase boundaries; wait for review or “next phase”.
+- After each phase: say what was added, how to run it, and what passed.
+- Prefer runnable checkpoints (tests, eval scripts) before infra layers (API, Compose, K8s).
+
+## Learning & docs split
+
+| File | Purpose |
+|---|---|
+| `README.md` | How to run / reviewer commands / test output meanings |
+| `DESIGN.md` | Findings, decisions, tradeoffs, assumptions (why) |
+| `build_interactive_plan.md` | User learning companion: build/learn/run/exit criteria per phase |
+
+- When the user asks “explain”, teach with examples from this corpus before coding more.
+- Document important architecture choices in `DESIGN.md` as they are made (keep brief; tables OK).
+- Put run instructions in `README.md`, not long rationale.
+
+## Collaboration habits
+
+- Explain unfamiliar terms (F1, SKIP LOCKED, gold label, observed parent) when they appear.
+- If the user challenges a design (pass/fail vs F1, queue in Postgres vs Redis), decide explicitly and record the tradeoff.
+- Commit only when asked; prefer small separated commits (feat vs docs).
+- Never skip ahead to later phases “for convenience” unless the user asks.
