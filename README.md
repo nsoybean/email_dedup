@@ -9,7 +9,12 @@ Postgres as store and job queue (production: objects in S3, jobs on a broker —
 see [Scaling in production](#scaling-in-production)). Full list:
 [Assumptions and shortcuts](#assumptions-and-shortcuts).
 
-See `DESIGN.md` for decisions and tradeoffs, `LEARNING.md` for FAQs.
+## Design notes
+
+Dataset findings, canonical/hierarchy rules, eval metrics (why F1), API
+idempotency, and worker claim semantics live in [`DESIGN.md`](DESIGN.md).
+This README is how to run and verify. FAQs from each build phase:
+[`LEARNING.md`](LEARNING.md).
 
 ## Run (kind)
 
@@ -193,7 +198,9 @@ Default DB: `postgresql+psycopg://email:email@localhost:5433/email_dedup`
 
 | Choice | Note |
 |---|---|
-| Message-ID sequence equality for near-dedup | Matches this corpus; missing/mutated IDs fail rather than fuzzy-merge |
+| Usable Message-ID on every parseable message | Missing or unusable IDs are permanent parse failures, not fuzzy-recovered |
+| Newest-first message order stable in `eval` and `test` | Hierarchy uses `message_ids[1:]` as parent; reordered dumps would break links |
+| Message-ID sequence equality for near-dedup | Matches this corpus; mutated IDs fail rather than fuzzy-merge |
 | Postgres as DB **and** job queue | Fine for the prototype; production would use Redis (or SQS/Kafka) as the job broker — [Scaling in production](#scaling-in-production) |
 | Full payload on each job row | Workers need no shared volume; production jobs would hold object keys, not bytes |
 | Corpus in the image | Convenient for kind Jobs; production would use object storage / events |
