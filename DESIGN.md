@@ -185,7 +185,24 @@ Walking the whole ancestry would be recursive/app-side, and is out of scope.
   (`FOR UPDATE SKIP LOCKED`). Dirty-prototype choice: fewer moving parts than
   Redis/SQS/Kafka.
 
-### Persistence (Phase 5)
+### HTTP API
+
+- `POST /documents` enqueues asynchronously and always returns **202** on accept.
+- Submit-time short-circuit:
+  - same `document_id` + same content already processed → 202 `status=completed`
+  - same id already has a pending/processing job with same content → reuse that job
+  - same id + different content → **409**
+- Assignment reads are one-hop only (see table above). OpenAPI at `/docs`.
+
+### Workers + Compose
+
+- Worker loop: claim (`SKIP LOCKED`) → **commit claim** → process → complete /
+  requeue / fail. Claim is committed first so `attempts` survive process rollback.
+- Permanent errors (`ParseError`, `DocumentConflictError`) skip retries.
+- One Docker image; Compose runs migrate (once), API, and three worker containers
+  with Postgres health + migrate completion gates.
+
+### Persistence
 
 PostgreSQL tables:
 

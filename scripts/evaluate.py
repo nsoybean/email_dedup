@@ -335,7 +335,12 @@ def validate_hierarchy(
     return report
 
 
+def _print_banner(title: str) -> None:
+    print(f"=== {title} ===")
+
+
 def _print_parsing_report(report: ParsingReport) -> None:
+    _print_banner("parsing")
     print(f"files_checked={report.files_checked}")
     print(f"parse_failures={len(report.parse_failures)}")
     print(f"count_mismatches={len(report.count_mismatches)}")
@@ -353,6 +358,7 @@ def _print_parsing_report(report: ParsingReport) -> None:
 
 
 def _print_dedup_report(report: DedupReport) -> None:
+    _print_banner("dedup")
     print(f"files_checked={report.files_checked}")
     print(f"parse_failures={len(report.parse_failures)}")
     print(f"unique_gold_labels={report.unique_gold_labels}")
@@ -373,6 +379,10 @@ def _print_dedup_report(report: DedupReport) -> None:
 
 
 def _print_hierarchy_report(report: HierarchyReport) -> None:
+    title = f"hierarchy order={report.order}"
+    if report.seed is not None and report.order == "random":
+        title = f"{title} seed={report.seed}"
+    _print_banner(title)
     print(f"files_checked={report.files_checked}")
     print(f"parse_failures={len(report.parse_failures)}")
     print(f"order={report.order}")
