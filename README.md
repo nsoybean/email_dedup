@@ -4,6 +4,11 @@ Prototype that ingests raw email thread dumps, deduplicates them into canonical
 threads by Message-ID sequence, and links parent/child hierarchy — with parallel
 workers on local Kubernetes ([kind](https://kind.sigs.k8s.io/)).
 
+Quick prototype assumptions: dedup by extracted Message-IDs sequence equality;
+Postgres as store and job queue (production: objects in S3, jobs on a broker —
+see [Scaling in production](#scaling-in-production)). Full list:
+[Assumptions and shortcuts](#assumptions-and-shortcuts).
+
 See `DESIGN.md` for decisions and tradeoffs, `LEARNING.md` for FAQs.
 
 ## Run (kind)
@@ -189,11 +194,45 @@ Default DB: `postgresql+psycopg://email:email@localhost:5433/email_dedup`
 | Choice | Note |
 |---|---|
 | Message-ID sequence equality for near-dedup | Matches this corpus; missing/mutated IDs fail rather than fuzzy-merge |
-| Postgres as DB **and** job queue | Fewer moving parts; production would often add a dedicated broker |
-| Full payload on each job row | Workers need no shared volume; production might store objects in S3 |
+| Postgres as DB **and** job queue | Fine for the prototype; production would use Redis (or SQS/Kafka) as the job broker — [Scaling in production](#scaling-in-production) |
+| Full payload on each job row | Workers need no shared volume; production jobs would hold object keys, not bytes |
 | Corpus in the image | Convenient for kind Jobs; production would use object storage / events |
 | Observed-only parents | Child stores `expected_parent_id`; parent appears in relations once ingested |
 | Direct parent/children API only | Assignment asks one-hop lookups, not full ancestry walks |
+
+### Scaling in production
+
+This demo stores **job metadata + full document text in Postgres** and uses
+`FOR UPDATE SKIP LOCKED` as the queue. That keeps infra small and proves
+multi-worker concurrency, but it is not how you’d push very large corpora.
+
+A more scalable production shape:
+
+```mermaid
+flowchart LR
+  upload[Upload / event]
+  s3[(Object store<br/>S3 / GCS)]
+  redis[Job broker<br/>Redis / SQS / Kafka]
+  workers[Worker(s)]
+  pg[(PostgreSQL<br/>canonical state)]
+
+  upload -->|"put document bytes"| s3
+  upload -->|"enqueue job<br/>doc_id + object key"| redis
+  workers -->|"claim job"| redis
+  workers -->|"fetch object"| s3
+  workers -->|"parse / dedup / hierarchy"| pg
+```
+
+| Concern | This prototype | Production sketch |
+|---|---|---|
+| Where bytes live | `ingestion_jobs.payload` in Postgres | Object store; job holds a key/ref |
+| How work is dispatched | Workers poll Postgres with `SKIP LOCKED` | Broker (e.g. Redis) claim/ack; high-throughput queue |
+| What Postgres does | Queue **and** canonical store | Canonical store (+ maybe job status); not the hot queue |
+| Scaling workers | Works until queue polling / row locks contend | Scale consumers independently of DB write path |
+| Why change | Fewer services to run | Avoid bloating tables, long lock waits, and mixing OLTP state with queue traffic |
+
+Same domain logic as today; different plumbing. The Kubernetes worker Deployment
+still scales horizontally; only the “claim work” mechanism changes.
 
 ## Troubleshooting
 
