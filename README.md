@@ -7,9 +7,10 @@ See `DESIGN.md` for decisions and tradeoffs, `LEARNING.md` for FAQs.
 ## Run (kind)
 
 Primary demo: a local [kind](https://kind.sigs.k8s.io/) Kubernetes cluster with
-Postgres, migrate Job, API, and a **3-replica worker** Deployment. Load opaque
-**`data/test`** files (filenames = document IDs only). Corpus is baked into the
-image for loader/evaluator Jobs.
+Postgres, migrate Job, API, and a **3-replica worker** Deployment. Ingest
+**`data/test`**: each filename is the document ID; the service does not parse
+filename structure. The corpus is included in the image for loader and evaluator
+Jobs.
 
 **Prerequisites:** Docker Desktop, [`kind`](https://kind.sigs.k8s.io/docs/user/quick-start/#installation),
 `kubectl`, `make`.

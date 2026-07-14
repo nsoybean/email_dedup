@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Path, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -95,7 +95,7 @@ def create_app(
         summary="Get ingestion job status",
     )
     def job_status(
-        job_id: int,
+        job_id: Annotated[int, Path(example=1)],
         session: Annotated[Session, Depends(get_db_session)],
     ) -> JobStatusResponse:
         job = get_job(session, job_id)
