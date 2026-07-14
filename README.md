@@ -231,8 +231,8 @@ flowchart LR
 | Scaling workers | Works until queue polling / row locks contend | Scale consumers independently of DB write path |
 | Why change | Fewer services to run | Avoid bloating tables, long lock waits, and mixing OLTP state with queue traffic |
 
-Same domain logic as today; different plumbing. The Kubernetes worker Deployment
-still scales horizontally; only the “claim work” mechanism changes.
+Parse / dedup / hierarchy stay the same; production swaps Postgres queue polling
+for a Redis (or SQS/Kafka) broker — only how workers claim work changes.
 
 ## Troubleshooting
 
