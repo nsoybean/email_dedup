@@ -21,17 +21,22 @@ This README is how to run and verify. FAQs from each build phase:
 Primary demo: a local [kind](https://kind.sigs.k8s.io/) Kubernetes cluster with
 Postgres, migrate Job, API, and a **3-replica worker** Deployment. Ingest
 `data/test`: each filename is the document ID; the service does not parse
-filename structure. The corpus is included in the image for loader and evaluator
-Jobs.
+filename structure. At image build, `data/` is copied into the image for loader
+and evaluator Jobs.
 
 **Prerequisites:** Docker Desktop,
 [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation),
 `kubectl`, `make`.
 
+**Dataset (not in this repo):** place the provided corpus at the repo root so
+you have `data/test/` (opaque docs to ingest) and `data/eval/` (labeled docs for
+scoring). Image build and local scripts both expect that layout.
+
 If Compose is already running, stop it first so ports/resources do not clash:
 `docker compose down`.
 
 ```bash
+# from repo root, with data/ present
 make cluster-up
 make ingest
 make port-forward
@@ -121,7 +126,8 @@ See [DESIGN.md — Hierarchy](DESIGN.md#hierarchy) and
 
 ## Fallback: Docker Compose
 
-Same image and three workers, without Kubernetes:
+Same image and three workers, without Kubernetes. Requires `data/` at the repo
+root (see above).
 
 ```bash
 python3 -m venv .venv
