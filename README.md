@@ -2,8 +2,8 @@
 
 Prototype implementation for the email ingestion and deduplication assignment.
 
-The project is being built incrementally. See `build_interactive_plan.md` for the
-developer learning workflow, and `DESIGN.md` for findings and decisions.
+The project is being built incrementally. See `LEARNING.md` for phase FAQs,
+`DESIGN.md` for decisions, and `.cursor/plans/` for the build plan.
 
 ## Setup
 

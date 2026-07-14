@@ -35,8 +35,11 @@ isProject: false
 # Email Ingestion Prototype Plan
 
 ## Phased implementation
-- This file is the authoritative implementation plan. [`build_interactive_plan.md`](build_interactive_plan.md) is only the developer-facing learning and command companion.
+- This file is the authoritative implementation plan for **what to build**.
+- Learning checkpoints and FAQ live in [`LEARNING.md`](LEARNING.md). Decisions/tradeoffs live in [`DESIGN.md`](DESIGN.md). Run commands live in [`README.md`](README.md).
+- Do **not** recreate `build_interactive_plan.md` — that legacy file was removed; do not reintroduce a parallel long interactive plan.
 - Implement one phase at a time and keep each checkpoint runnable. Do not introduce PostgreSQL before pure parsing/dedup/hierarchy passes, and do not introduce Kubernetes before the application passes its local regression suite.
+- After each completed phase, append a short “Built” + FAQ section to `LEARNING.md` (planned learn questions and discovered surprises).
 
 ### Phase 0: Confirm corpus invariants
 - Inspect representative root, child, branch, and variant documents from [`data/eval`](data/eval) and opaque documents from [`data/test`](data/test).

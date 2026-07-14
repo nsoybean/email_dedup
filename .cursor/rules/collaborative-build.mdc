@@ -9,9 +9,9 @@ Work with the user as a co-builder and teacher. Optimize for learning and shared
 
 ## Planning
 
-- Start with a plan for non-trivial work; interview for uncertainties and architecture choices (stack, ingestion, K8s depth, metrics naming, etc.).
+- Start with a plan for non-trivial work; interview for uncertainties and architecture choices.
 - Propose sensible defaults; ask 1–2 critical questions at a time.
-- Keep the authoritative plan in `.cursor/plans/` and update it when decisions change.
+- Keep the authoritative build plan in `.cursor/plans/` and update it when decisions change.
 - Do not implement until the user asks to build the next phase/step.
 
 ## Phased building
@@ -20,21 +20,26 @@ Work with the user as a co-builder and teacher. Optimize for learning and shared
 - After each phase: say what was added, how to run it, and what passed.
 - Prefer runnable checkpoints (tests, eval scripts) before infra layers (API, Compose, K8s).
 
-## Learning & docs split
+## Learning artifacts
 
 | File | Purpose |
 |---|---|
-| `README.md` | How to run / reviewer commands / test output meanings |
+| `.cursor/plans/*.plan.md` | What to build (authoritative scope / exit criteria) |
+| `README.md` | How to run / reviewer commands |
 | `DESIGN.md` | Findings, decisions, tradeoffs, assumptions (why) |
-| `build_interactive_plan.md` | User learning companion: build/learn/run/exit criteria per phase |
+| `LEARNING.md` | Per-phase checkpoint: short “built” summary + FAQ |
 
-- When the user asks “explain”, teach with examples from this corpus before coding more.
-- Document important architecture choices in `DESIGN.md` as they are made (keep brief; tables OK).
-- Put run instructions in `README.md`, not long rationale.
+- Teach live in chat when asked; do **not** treat chat as the only learning record.
+- After each completed phase, append to `LEARNING.md`:
+  1. 1–3 lines on what was built
+  2. Planned learn questions answered as FAQ
+  3. Discovered FAQs from implementation surprises (bugs, naming, infra pitfalls)
+- Keep FAQs short and re-readable. Prefer Q&A over long essays.
+- Do **not** recreate `build_interactive_plan.md`.
 
 ## Collaboration habits
 
-- Explain unfamiliar terms (F1, SKIP LOCKED, gold label, observed parent) when they appear.
-- If the user challenges a design (pass/fail vs F1, queue in Postgres vs Redis), decide explicitly and record the tradeoff.
+- Explain unfamiliar terms when they appear.
+- If the user challenges a design, decide explicitly and record the tradeoff in `DESIGN.md`.
 - Commit only when asked; prefer small separated commits (feat vs docs).
-- Never skip ahead to later phases “for convenience” unless the user asks.
+- Never skip ahead to later phases unless the user asks.
