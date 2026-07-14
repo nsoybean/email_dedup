@@ -193,3 +193,21 @@ and claims via `SKIP LOCKED`. Change count with `kubectl scale`.
 **Q: Why bake `data/` into the image?**  
 A: Loader/evaluator Jobs need files without host volume mounts. Production would
 pull from object storage or an event source instead.
+
+---
+
+## Phase 10 — Submission README
+
+**Built:** Reviewer-facing README with kind path first, data-flow mermaid
+(Postgres as store + queue), OpenAPI examples, eval sample, scale, assumptions,
+troubleshooting.
+
+### FAQ
+
+**Q: Why show Postgres as the queue in the diagram instead of an abstract “queue”?**  
+A: Hiding it makes the design look like Redis/SQS. Showing `enqueue` +
+`SKIP LOCKED` claim is the deliberate prototype choice — clearer for reviewers.
+
+**Q: Who uses `data/test` vs `data/eval`?**  
+A: `data/test` → ingest into the system. `data/eval` → in-memory scoring only
+(`make evaluate`); never loaded as the primary demo corpus.

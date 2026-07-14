@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: submission
     content: "Phase 10: finish reviewer documentation and final verification"
-    status: pending
+    status: completed
 isProject: false
 ---
 
