@@ -102,16 +102,16 @@ curl -s "http://127.0.0.1:8000/canonicals/<canonical_id>/relations"
 
 ```mermaid
 flowchart LR
-  loader[Loader Job<br/>data/test]
+  loader["Loader Job<br/>data/test"]
   api[API]
-  pg[(PostgreSQL)]
-  workers[Worker(s)]
-  docs[OpenAPI lookups]
+  pg[("PostgreSQL")]
+  workers["Worker(s)"]
+  docs["OpenAPI lookups"]
 
   loader -->|"POST /documents"| api
   api -->|"enqueue job<br/>status=pending"| pg
   workers -->|"claim FOR UPDATE<br/>SKIP LOCKED"| pg
-  workers -->|"parse → canonical<br/>+ parent edge"| pg
+  workers -->|"parse to canonical<br/>+ parent edge"| pg
   docs -->|"GET canonical / docs / relations"| api
   api --> pg
 ```
@@ -223,11 +223,11 @@ A more scalable production shape:
 
 ```mermaid
 flowchart LR
-  upload[Upload / event]
-  s3[(Object store<br/>S3 / GCS)]
-  redis[Job broker<br/>Redis / SQS / Kafka]
-  workers[Worker(s)]
-  pg[(PostgreSQL<br/>canonical state)]
+  upload["Upload / event"]
+  s3[("Object store<br/>S3 / GCS")]
+  redis["Job broker<br/>Redis / SQS / Kafka"]
+  workers["Worker(s)"]
+  pg[("PostgreSQL<br/>canonical state")]
 
   upload -->|"put document bytes"| s3
   upload -->|"enqueue job<br/>doc_id + object key"| redis
