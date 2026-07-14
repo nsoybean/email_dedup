@@ -29,8 +29,7 @@ Other terminals:
 
 ```bash
 make status
-make evaluate          # in-cluster scoring vs data/eval (expect status=PASS)
-make ingest-eval       # optional: also load data/eval through workers
+make evaluate          # score data/eval in-memory (expect status=PASS)
 make cluster-down
 ```
 
@@ -38,8 +37,7 @@ make cluster-down
 |---|---|
 | `cluster-up` | Create kind cluster, build/load `email-dedup:local`, apply `k8s/`, wait ready |
 | `ingest` | Job: submit `data/test` to the API |
-| `ingest-eval` | Job: submit `data/eval` |
-| `evaluate` | Job: run `scripts/evaluate.py` modes (in-memory; needs no ingest) |
+| `evaluate` | Job: run `scripts/evaluate.py` on `data/eval` (in-memory; not loaded into the DB) |
 | `port-forward` | `svc/api` → `localhost:8000` |
 | `status` | Pods / Deployments / Jobs |
 | `cluster-down` | Delete the kind cluster |

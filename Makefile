@@ -14,7 +14,7 @@ IMAGE ?= email-dedup:local
 KUBECTL ?= kubectl
 KIND ?= $(shell command -v kind 2>/dev/null || echo $(HOME)/bin/kind)
 
-.PHONY: cluster-up cluster-down status ingest ingest-eval evaluate port-forward \
+.PHONY: cluster-up cluster-down status ingest evaluate port-forward \
 	build load apply wait-ready help
 
 help:
@@ -22,8 +22,7 @@ help:
 	@echo "  cluster-up     Create kind cluster, build/load image, apply k8s, wait ready"
 	@echo "  status         Show pods and deployments"
 	@echo "  ingest         Load data/test via Job"
-	@echo "  ingest-eval    Load data/eval via Job (optional)"
-	@echo "  evaluate       Run eval corpus scoring Job (in-memory)"
+	@echo "  evaluate       Score data/eval in-memory (no DB ingest)"
 	@echo "  port-forward   Forward api Service to localhost:8000"
 	@echo "  cluster-down   Delete the kind cluster"
 
@@ -90,16 +89,9 @@ ingest:
 		--timeout=300s
 	$(KUBECTL) logs --namespace $(NAMESPACE) job/loader-test
 
-ingest-eval:
-	$(KUBECTL) delete job loader-eval --namespace $(NAMESPACE) --ignore-not-found
-	$(KUBECTL) apply -f k8s/07-loader-eval.yaml
-	$(KUBECTL) wait --namespace $(NAMESPACE) --for=condition=complete job/loader-eval \
-		--timeout=300s
-	$(KUBECTL) logs --namespace $(NAMESPACE) job/loader-eval
-
 evaluate:
 	$(KUBECTL) delete job evaluate --namespace $(NAMESPACE) --ignore-not-found
-	$(KUBECTL) apply -f k8s/08-evaluate.yaml
+	$(KUBECTL) apply -f k8s/07-evaluate.yaml
 	$(KUBECTL) wait --namespace $(NAMESPACE) --for=condition=complete job/evaluate \
 		--timeout=300s
 	$(KUBECTL) logs --namespace $(NAMESPACE) job/evaluate

@@ -106,7 +106,7 @@ isProject: false
 
 ### Phase 9: Deploy and verify on local kind
 - Add kind-compatible Kubernetes resources under [`k8s`](k8s) for configuration, secrets, PostgreSQL persistence, migrations, FastAPI, a three-replica worker Deployment, loader Jobs, evaluator Jobs, Services, and health probes.
-- Add [`Makefile`](Makefile) automation: `cluster-up` creates kind, builds and loads the image, applies resources, and waits; `status`, `ingest-eval`, `evaluate`, and `cluster-down` demonstrate and clean up the system.
+- Add [`Makefile`](Makefile) automation: `cluster-up` creates kind, builds and loads the image, applies resources, and waits; `status`, `ingest` (`data/test`), `evaluate` (`data/eval` scoring only), and `cluster-down` demonstrate and clean up the system.
 - Package the small assignment corpus into the exercise image for self-contained loader/evaluator Jobs, while documenting that production ingestion would use object storage or an event source.
 - Exit when a fresh kind cluster processes eval data with at least three worker pods and produces the same metrics as local regression.
 
@@ -147,7 +147,7 @@ isProject: false
 
 ## Local Kubernetes delivery
 - Make a local [`kind`](https://kind.sigs.k8s.io/) cluster the primary assignment demonstration. Add a production [`Dockerfile`](Dockerfile), [`Makefile`](Makefile), and resources under [`k8s/`](k8s/) for PostgreSQL, migrations, FastAPI, loader/evaluation Jobs, and a worker Deployment with three replicas.
-- Automate the reviewer flow: `make cluster-up` creates the cluster, builds and loads the image, applies manifests, and waits for readiness; `make ingest-eval`, `make status`, `make evaluate`, and `make cluster-down` exercise and clean up the system.
+- Automate the reviewer flow: `make cluster-up` creates the cluster, builds and loads the image, applies manifests, and waits for readiness; `make ingest`, `make status`, `make evaluate`, and `make cluster-down` exercise and clean up the system.
 - Package the small supplied corpus in the exercise image so Kubernetes loader/evaluation Jobs can run without host-volume assumptions. Document that a production system would submit content from object storage or an external event source instead.
 - Expose FastAPI locally through `kubectl port-forward`, with OpenAPI available at `/docs`; demonstrate horizontal processing by showing and scaling the worker Deployment.
 - Retain [`compose.yaml`](compose.yaml) as a simpler fallback for reviewers who do not have `kind` and `kubectl`, using the same image and multi-worker/PostgreSQL architecture.
