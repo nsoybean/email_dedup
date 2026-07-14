@@ -33,3 +33,12 @@ class ParsedThread:
     @property
     def message_ids(self) -> tuple[str, ...]:
         return tuple(message.message_id for message in self.messages)
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalAssignment:
+    """Mapping from a raw document to its deterministic canonical thread."""
+
+    document_id: str
+    canonical_id: str
+    message_ids: tuple[str, ...]
