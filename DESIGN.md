@@ -57,11 +57,13 @@ The hierarchy is a tree, not only a linear chain. Branches such as `1_0` and
 Eval names encode ground truth for scoring only (`eval_labels.py`). Ingestion
 must not use them.
 
-| From filename | Gold field |
-|---|---|
-| strip trailing `b`/`c`/`d`/`e` | `canonical_label` |
-| drop last path segment | `parent_label` |
-| number of path segments | `expected_message_count` |
+
+| From filename                  | Gold field               |
+| ------------------------------ | ------------------------ |
+| strip trailing `b`/`c`/`d`/`e` | `canonical_label`        |
+| drop last path segment         | `parent_label`           |
+| number of path segments        | `expected_message_count` |
+
 
 ```text
 1_0_0b.txt
@@ -79,10 +81,10 @@ In-memory check against `data/eval` (no database):
 1. Read each file, derive gold labels from the filename, parse content → `message_ids`.
 2. Index parsed docs by `canonical_label`.
 3. Score:
-   - parse errors
-   - `len(message_ids) == expected_message_count`
-   - variants with the same gold label share the same `message_ids`
-   - for each child: `child.message_ids[1:] == parent.message_ids`
+  - parse errors
+  - `len(message_ids) == expected_message_count`
+  - variants with the same gold label share the same `message_ids`
+  - for each child: `child.message_ids[1:] == parent.message_ids`
 
 ```text
 1_0_0.message_ids      = [60aa, 33c9, bd00]
@@ -96,11 +98,13 @@ Run commands and output field meanings: [README.md — Validate parsing](README.
 
 Score pairwise clustering after `canonical_id = sha256(join(message_ids, "\n"))`:
 
-| Count | Meaning |
-|---|---|
-| `true_positives` | Same gold label and same predicted canonical |
+
+| Count             | Meaning                                      |
+| ----------------- | -------------------------------------------- |
+| `true_positives`  | Same gold label and same predicted canonical |
 | `false_positives` | False merges: predicted same, gold different |
 | `false_negatives` | False splits: gold same, predicted different |
+
 
 `precision = TP/(TP+FP)`, `recall = TP/(TP+FN)`,
 `f1 = 2 * precision * recall / (precision + recall)`.
@@ -112,11 +116,26 @@ when merges/splits are wrong. Pairwise precision/recall/F1 focus on the hard
 “should these two be the same canonical?” cases and stay meaningful when the
 score is below 100%.
 
+### Hierarchy validation (`scripts/evaluate.py hierarchy`)
+
+Link observed canonicals with:
+
+```text
+expected_parent_id = sha256(join(message_ids[1:], "\n"))  # None for roots. when len(message_ids) == 1
+```
+
+Create canonical nodes only for observed documents. Parent/children resolve at query time when the
+matching parent id exists in the store, so child-first ingestion still works.
+
+Score parent→child edges with TP/FP/FN (extra edge / missing edge). Also verify
+`natural`, `reverse`, `child_first`, and `random` ingestion orders yield the same
+final canonical set and edge set.
+
 ## Decisions
 
 - A document’s `canonical_id` is the SHA-256 of its newest-first `message_ids`
-  sequence (joined with `"\n"`). Look that id up in the canonical store: if
-  present, map the document to it; if absent, insert a new canonical and map.
+sequence (joined with `"\n"`). Look that id up in the canonical store: if
+present, map the document to it; if absent, insert a new canonical and map.
 
 ```text
 canonical_id = sha256(join(message_ids, "\n"))
@@ -129,7 +148,7 @@ else:
 ```
 
 - Each document keeps its own `document_id`. Only identical sequences share a
-  `canonical_id` (parent/child sequences do not):
+`canonical_id` (parent/child sequences do not):
 
 ```text
 1_0_0.txt / 1_0_0b.txt / 1_0_0c.txt
@@ -140,13 +159,21 @@ else:
 1_0_0 = [60aa, 33c9, bd00] → sha256(...)   # parent/child, not the same
 ```
 
+- Hierarchy uses observed-only nodes and `expected_parent_id = hash(message_ids[1:])`.
+Unresolved parents stay pending until that canonical is observed.
+
+
+
 ## Tradeoffs
 
 - Message-ID equality is simple and fits the supplied data, but it is not a
-  general near-dedup strategy if Message-IDs are missing or mutated.
+general near-dedup strategy if Message-IDs are missing or mutated.
+
+
 
 ## Assumptions
 
 - Every parseable message has a usable Message-ID.
 - Newest-first order is stable in both `eval` and `test`.
 - Eval filename structure is trustworthy for scoring only.
+

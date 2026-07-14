@@ -74,3 +74,26 @@ See [DESIGN.md — Dedup validation](DESIGN.md#dedup-validation-scriptsevaluatep
 ```bash
 python -m pytest tests/unit/test_canonicalization.py -v
 ```
+
+## Validate hierarchy
+
+```bash
+python scripts/evaluate.py hierarchy --data-dir data/eval
+python scripts/evaluate.py hierarchy --data-dir data/eval --order reverse
+python scripts/evaluate.py hierarchy --data-dir data/eval --order child_first
+python scripts/evaluate.py hierarchy --data-dir data/eval --order random --seed 1
+```
+
+| Field | Meaning |
+|---|---|
+| `true_positives` | Predicted parent→child edge matches gold |
+| `false_positives` | Extra predicted edges |
+| `false_negatives` | Missing gold edges |
+| `order_independent` | Same final edges/canonicals across natural/reverse/child_first/random |
+| `status` | `PASS` when FP = FN = 0, order-independent, no parse failures |
+
+See [DESIGN.md — Hierarchy validation](DESIGN.md#hierarchy-validation-scriptsevaluatepy-hierarchy).
+
+```bash
+python -m pytest tests/unit/test_hierarchy.py -v
+```

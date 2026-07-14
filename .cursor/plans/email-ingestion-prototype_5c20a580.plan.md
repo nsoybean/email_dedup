@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: hierarchy
     content: "Phase 4: implement order-independent hierarchy logic"
-    status: pending
+    status: completed
   - id: persistence
     content: "Phase 5: add PostgreSQL persistence, migrations, queue claiming, and integration tests"
     status: pending

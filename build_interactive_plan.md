@@ -123,14 +123,17 @@ python scripts/evaluate.py dedup --data-dir data/eval
 
 ### Run and inspect
 ```bash
-uv run pytest tests/unit/test_hierarchy.py -v
-uv run python scripts/evaluate.py hierarchy --data-dir data/eval --order random --seed 1
-uv run python scripts/evaluate.py hierarchy --data-dir data/eval --order reverse
+source .venv/bin/activate
+python -m pytest tests/unit/test_hierarchy.py -v
+python scripts/evaluate.py hierarchy --data-dir data/eval
+python scripts/evaluate.py hierarchy --data-dir data/eval --order random --seed 1
+python scripts/evaluate.py hierarchy --data-dir data/eval --order reverse
 ```
 
 ### Exit criteria
 - Normal, randomized, child-first, and reverse ingestion orders produce identical clusters and edges.
 - Branching parents return all expected children.
+- Report shows `false_positives=0`, `false_negatives=0`, `order_independent=True`, `status=PASS`.
 
 ## Phase 5: Add PostgreSQL persistence and the durable job queue
 
