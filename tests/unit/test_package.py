@@ -22,8 +22,10 @@ def test_raw_document_is_immutable() -> None:
 def test_settings_are_loaded_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EMAIL_DEDUP_ENV", "test")
     monkeypatch.setenv("EMAIL_DEDUP_LOG_LEVEL", "debug")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://x:y@localhost:5432/z")
 
     settings = Settings.from_environment()
 
     assert settings.environment == "test"
     assert settings.log_level == "DEBUG"
+    assert settings.database_url.endswith("/z")
