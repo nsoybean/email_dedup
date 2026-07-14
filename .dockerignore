@@ -1,0 +1,11 @@
+.venv/
+.git/
+.pytest_cache/
+.ruff_cache/
+.cursor/
+**/__pycache__/
+*.pyc
+*.egg-info/
+.DS_Store
+*.md
+!README.md

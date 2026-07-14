@@ -23,9 +23,13 @@ def test_settings_are_loaded_from_environment(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("EMAIL_DEDUP_ENV", "test")
     monkeypatch.setenv("EMAIL_DEDUP_LOG_LEVEL", "debug")
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://x:y@localhost:5432/z")
+    monkeypatch.setenv("WORKER_POLL_INTERVAL_SECONDS", "1.5")
+    monkeypatch.setenv("WORKER_MAX_ATTEMPTS", "5")
 
     settings = Settings.from_environment()
 
     assert settings.environment == "test"
     assert settings.log_level == "DEBUG"
     assert settings.database_url.endswith("/z")
+    assert settings.worker_poll_interval_seconds == 1.5
+    assert settings.worker_max_attempts == 5

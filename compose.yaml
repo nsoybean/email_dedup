@@ -1,5 +1,22 @@
-# Postgres for local integration tests and Phase 5 development.
+# Full local stack: Postgres + migrate + API + three workers (one image).
 # Host port 5433 avoids clashing with other local Postgres (e.g. Langfuse on 5432).
+#
+#   docker compose up --build -d
+#   python scripts/load_directory.py data/test --base-url http://127.0.0.1:8000
+#   open http://127.0.0.1:8000/docs
+
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql+psycopg://email:email@postgres:5432/email_dedup
+  EMAIL_DEDUP_ENV: compose
+  EMAIL_DEDUP_LOG_LEVEL: INFO
+  WORKER_POLL_INTERVAL_SECONDS: "0.5"
+  WORKER_MAX_ATTEMPTS: "3"
+
+x-app-build: &app-build
+  build: .
+  image: email-dedup:local
+  environment: *app-environment
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -14,3 +31,58 @@ services:
       interval: 2s
       timeout: 5s
       retries: 20
+
+  migrate:
+    <<: *app-build
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *app-build
+    command:
+      [
+        "uvicorn",
+        "email_dedup.api.app:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  worker-1: &worker
+    <<: *app-build
+    command: ["python", "-m", "email_dedup.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-2:
+    <<: *worker
+
+  worker-3:
+    <<: *worker

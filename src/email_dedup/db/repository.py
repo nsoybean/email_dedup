@@ -33,6 +33,16 @@ class CanonicalRelations:
     child_ids: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class SubmitResult:
+    """Outcome of submitting a document for asynchronous ingestion."""
+
+    document_id: str
+    status: str
+    job_id: int | None
+    canonical_id: str | None
+
+
 def content_hash_for(payload: str) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -48,6 +58,59 @@ def enqueue_job(session: Session, document_id: str, payload: str) -> IngestionJo
     session.add(job)
     session.flush()
     return job
+
+
+def submit_document(session: Session, document_id: str, payload: str) -> SubmitResult:
+    """Enqueue a document or short-circuit idempotent / conflicting resubmits.
+
+    - Already processed with the same content → completed (no new job).
+    - Already processed with different content → DocumentConflictError.
+    - Existing pending/processing job with the same content → reuse that job.
+    - Otherwise → enqueue a new pending job.
+    """
+    content_hash = content_hash_for(payload)
+    existing = session.get(RawDocument, document_id)
+    if existing is not None:
+        if existing.content_hash != content_hash:
+            raise DocumentConflictError(
+                f"document_id {document_id!r} already exists with different content"
+            )
+        return SubmitResult(
+            document_id=document_id,
+            status=JOB_STATUS_COMPLETED,
+            job_id=None,
+            canonical_id=existing.canonical_id,
+        )
+
+    active = session.scalars(
+        select(IngestionJob)
+        .where(
+            IngestionJob.document_id == document_id,
+            IngestionJob.content_hash == content_hash,
+            IngestionJob.status.in_((JOB_STATUS_PENDING, JOB_STATUS_PROCESSING)),
+        )
+        .order_by(IngestionJob.id.desc())
+        .limit(1)
+    ).first()
+    if active is not None:
+        return SubmitResult(
+            document_id=document_id,
+            status=active.status,
+            job_id=active.id,
+            canonical_id=None,
+        )
+
+    job = enqueue_job(session, document_id, payload)
+    return SubmitResult(
+        document_id=document_id,
+        status=JOB_STATUS_PENDING,
+        job_id=job.id,
+        canonical_id=None,
+    )
+
+
+def get_job(session: Session, job_id: int) -> IngestionJob | None:
+    return session.get(IngestionJob, job_id)
 
 
 def claim_next_job(session: Session) -> IngestionJob | None:
@@ -81,6 +144,15 @@ def fail_job(session: Session, job_id: int, error: str) -> None:
         update(IngestionJob)
         .where(IngestionJob.id == job_id)
         .values(status=JOB_STATUS_FAILED, error=error)
+    )
+
+
+def requeue_job(session: Session, job_id: int, error: str | None = None) -> None:
+    """Return a claimed job to pending so another (or the same) worker can retry."""
+    session.execute(
+        update(IngestionJob)
+        .where(IngestionJob.id == job_id)
+        .values(status=JOB_STATUS_PENDING, error=error)
     )
 
 
