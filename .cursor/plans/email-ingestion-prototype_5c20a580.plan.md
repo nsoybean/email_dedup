@@ -8,8 +8,11 @@ todos:
   - id: parsing
     content: "Phase 2: implement and validate parsing across the eval corpus"
     status: completed
-  - id: dedup-hierarchy
-    content: "Phases 3-4: implement deduplication and order-independent hierarchy logic"
+  - id: dedup
+    content: "Phase 3: implement deterministic canonicalization and dedup evaluation"
+    status: completed
+  - id: hierarchy
+    content: "Phase 4: implement order-independent hierarchy logic"
     status: pending
   - id: persistence
     content: "Phase 5: add PostgreSQL persistence, migrations, queue claiming, and integration tests"
@@ -56,7 +59,7 @@ isProject: false
 - Encode ordered Message-ID sequences unambiguously and derive canonical IDs with SHA-256.
 - Implement pure grouping that maps each raw document to one canonical without any database or filename dependency.
 - Add [`tests/unit/test_canonicalization.py`](tests/unit/test_canonicalization.py) for exact duplicates, formatting variants, distinct sequences, deterministic IDs, and malformed inputs.
-- Add evaluator `dedup` mode: derive gold labels only inside evaluation, compare document pairs, and report precision, recall, F1, false merges, and false splits.
+- Add evaluator `dedup` mode: derive gold labels only inside evaluation, score pairwise TP/FP/FN (false merge / false split), and report precision, recall, F1 with pass/fail when FP=FN=0.
 - Exit when variants map together, distinct eval canonicals remain separate, and repeated runs produce identical canonical IDs.
 
 ### Phase 4: Implement order-independent hierarchy

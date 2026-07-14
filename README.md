@@ -50,3 +50,27 @@ Unit tests for specific parse cases:
 ```bash
 python -m pytest tests/unit/test_parser.py -v
 ```
+
+## Validate deduplication
+
+```bash
+python scripts/evaluate.py dedup --data-dir data/eval
+```
+
+Pairwise clustering score over all document pairs:
+
+| Field | Meaning |
+|---|---|
+| `true_positives` | Same gold label and same predicted `canonical_id` |
+| `false_positives` | False merges: predicted same, gold different |
+| `false_negatives` | False splits: gold same, predicted different |
+| `precision` | `TP / (TP + FP)` |
+| `recall` | `TP / (TP + FN)` |
+| `f1` | Harmonic mean of precision and recall |
+| `status` | `PASS` only if FP = FN = 0 and no parse failures |
+
+See [DESIGN.md — Dedup validation](DESIGN.md#dedup-validation-scriptsevaluatepy-dedup).
+
+```bash
+python -m pytest tests/unit/test_canonicalization.py -v
+```

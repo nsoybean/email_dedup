@@ -92,6 +92,28 @@ In-memory check against `data/eval` (no database):
 
 Run commands and output field meanings: [README.md — Validate parsing](README.md#validate-parsing).
 
+### Dedup validation (`scripts/evaluate.py dedup`)
+
+Score pairwise clustering after `canonical_id = sha256(join(message_ids, "\n"))`:
+
+| Count | Meaning |
+|---|---|
+| `true_positives` | Same gold label and same predicted canonical |
+| `false_positives` | False merges: predicted same, gold different |
+| `false_negatives` | False splits: gold same, predicted different |
+
+`precision = TP/(TP+FP)`, `recall = TP/(TP+FN)`,
+`f1 = 2 * precision * recall / (precision + recall)`.
+`status=PASS` only when FP = FN = 0 (and no parse failures).
+
+Why F1, not only accuracy / pass-fail: the assignment allows imperfect near-dedup.
+Most doc pairs are true negatives (unrelated threads), so accuracy stays high even
+when merges/splits are wrong. Pairwise precision/recall/F1 focus on the hard
+“should these two be the same canonical?” cases and stay meaningful when the
+score is below 100%.
+
+## Decisions
+
 - A document’s `canonical_id` is the SHA-256 of its newest-first `message_ids`
   sequence (joined with `"\n"`). Look that id up in the canonical store: if
   present, map the document to it; if absent, insert a new canonical and map.

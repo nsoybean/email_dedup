@@ -92,19 +92,20 @@ Expected validation:
 ### Learn
 - Why deterministic keys make retries and concurrent ingestion idempotent.
 - Pairwise precision, recall, and F1.
-- The difference between false merges and false splits.
+- TP / FP / FN for clustering: false positive = false merge, false negative = false split.
 - The deliberate limitation: missing or mutated Message-IDs are reported instead of fuzzy-matched.
 
 ### Run and inspect
 ```bash
-uv run pytest tests/unit/test_canonicalization.py -v
-uv run python scripts/evaluate.py dedup --data-dir data/eval
+source .venv/bin/activate
+python -m pytest tests/unit/test_canonicalization.py -v
+python scripts/evaluate.py dedup --data-dir data/eval
 ```
 
 ### Exit criteria
 - Variant files map to the same predicted canonical.
 - Distinct gold canonicals remain separate.
-- The report clearly lists any false merges or false splits.
+- Report shows `false_positives=0`, `false_negatives=0`, and `status=PASS`.
 
 ## Phase 4: Build an order-independent hierarchy
 
