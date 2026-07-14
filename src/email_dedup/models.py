@@ -42,3 +42,4 @@ class CanonicalAssignment:
     document_id: str
     canonical_id: str
     message_ids: tuple[str, ...]
+    expected_parent_id: str | None = None

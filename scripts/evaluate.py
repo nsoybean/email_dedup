@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import itertools
+import random
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -15,6 +16,7 @@ from pathlib import Path
 
 from email_dedup.canonicalization import canonical_id_for
 from email_dedup.eval_labels import EvalLabel, eval_label_from_path
+from email_dedup.hierarchy import CanonicalStore
 from email_dedup.parser import ParseError, parse_thread
 
 
@@ -82,6 +84,52 @@ class DedupReport:
             not self.parse_failures
             and self.false_positives == 0
             and self.false_negatives == 0
+        )
+
+
+@dataclass
+class HierarchyReport:
+    files_checked: int = 0
+    parse_failures: list[str] = field(default_factory=list)
+    order: str = "natural"
+    seed: int | None = None
+    true_positives: int = 0
+    false_positives: int = 0  # extra predicted edges
+    false_negatives: int = 0  # missing gold edges
+    false_positive_edges: list[str] = field(default_factory=list)
+    false_negative_edges: list[str] = field(default_factory=list)
+    gold_edge_count: int = 0
+    predicted_edge_count: int = 0
+    order_independent: bool = True
+    order_mismatches: list[str] = field(default_factory=list)
+
+    @property
+    def precision(self) -> float:
+        denominator = self.true_positives + self.false_positives
+        if denominator == 0:
+            return 1.0
+        return self.true_positives / denominator
+
+    @property
+    def recall(self) -> float:
+        denominator = self.true_positives + self.false_negatives
+        if denominator == 0:
+            return 1.0
+        return self.true_positives / denominator
+
+    @property
+    def f1(self) -> float:
+        if self.precision + self.recall == 0:
+            return 0.0
+        return 2 * self.precision * self.recall / (self.precision + self.recall)
+
+    @property
+    def ok(self) -> bool:
+        return (
+            not self.parse_failures
+            and self.false_positives == 0
+            and self.false_negatives == 0
+            and self.order_independent
         )
 
 
@@ -185,6 +233,108 @@ def validate_dedup(data_dir: Path) -> DedupReport:
     return report
 
 
+def _order_documents(
+    documents: list[ParsedEvalDocument],
+    order: str,
+    seed: int,
+) -> list[ParsedEvalDocument]:
+    docs = list(documents)
+    if order == "natural":
+        return docs
+    if order == "reverse":
+        return list(reversed(docs))
+    if order == "child_first":
+        return sorted(docs, key=lambda doc: (-len(doc.message_ids), doc.path.name))
+    if order == "random":
+        rng = random.Random(seed)
+        rng.shuffle(docs)
+        return docs
+    raise ValueError(f"unsupported order: {order}")
+
+
+def _build_store(documents: list[ParsedEvalDocument]) -> CanonicalStore:
+    store = CanonicalStore()
+    for document in documents:
+        store.upsert(document.path.name, document.message_ids)
+    return store
+
+
+def _gold_edges(
+    documents: list[ParsedEvalDocument],
+) -> tuple[frozenset[tuple[str, str]], dict[str, str]]:
+    by_label: dict[str, ParsedEvalDocument] = {}
+    for document in documents:
+        by_label.setdefault(document.label.canonical_label, document)
+
+    label_to_canonical = {
+        label: document.canonical_id for label, document in by_label.items()
+    }
+    edges: set[tuple[str, str]] = set()
+    for label, document in by_label.items():
+        parent_label = document.label.parent_label
+        if parent_label is None:
+            continue
+        parent_canonical = label_to_canonical.get(parent_label)
+        if parent_canonical is None:
+            continue
+        edges.add((parent_canonical, label_to_canonical[label]))
+    return frozenset(edges), label_to_canonical
+
+
+def validate_hierarchy(
+    data_dir: Path,
+    order: str = "natural",
+    seed: int = 1,
+) -> HierarchyReport:
+    documents, failures = load_eval_documents(data_dir)
+    report = HierarchyReport(
+        files_checked=len(documents) + len(failures),
+        parse_failures=failures,
+        order=order,
+        seed=seed if order == "random" else None,
+    )
+    if failures:
+        return report
+
+    gold_edges, label_to_canonical = _gold_edges(documents)
+    canonical_to_label = {canonical_id: label for label, canonical_id in label_to_canonical.items()}
+    ordered = _order_documents(documents, order, seed)
+    store = _build_store(ordered)
+    predicted_edges = store.resolved_edges()
+
+    def _edge_label(edge: tuple[str, str]) -> str:
+        parent, child = edge
+        parent_label = canonical_to_label.get(parent, parent[:12])
+        child_label = canonical_to_label.get(child, child[:12])
+        return f"{parent_label}->{child_label}"
+
+    report.gold_edge_count = len(gold_edges)
+    report.predicted_edge_count = len(predicted_edges)
+    report.true_positives = len(gold_edges & predicted_edges)
+    false_pos = predicted_edges - gold_edges
+    false_neg = gold_edges - predicted_edges
+    report.false_positives = len(false_pos)
+    report.false_negatives = len(false_neg)
+    report.false_positive_edges = sorted(_edge_label(edge) for edge in false_pos)
+    report.false_negative_edges = sorted(_edge_label(edge) for edge in false_neg)
+
+    baseline_ids = store.canonical_ids
+    baseline_edges = predicted_edges
+    for other_order in ("natural", "reverse", "child_first", "random"):
+        other_docs = _order_documents(documents, other_order, seed)
+        other_store = _build_store(other_docs)
+        if (
+            other_store.canonical_ids != baseline_ids
+            or other_store.resolved_edges() != baseline_edges
+        ):
+            report.order_independent = False
+            report.order_mismatches.append(
+                f"{other_order}: canonicals/edges differ from {order}"
+            )
+
+    return report
+
+
 def _print_parsing_report(report: ParsingReport) -> None:
     print(f"files_checked={report.files_checked}")
     print(f"parse_failures={len(report.parse_failures)}")
@@ -222,11 +372,37 @@ def _print_dedup_report(report: DedupReport) -> None:
     print("status=PASS" if report.ok else "status=FAIL")
 
 
+def _print_hierarchy_report(report: HierarchyReport) -> None:
+    print(f"files_checked={report.files_checked}")
+    print(f"parse_failures={len(report.parse_failures)}")
+    print(f"order={report.order}")
+    if report.seed is not None:
+        print(f"seed={report.seed}")
+    print(f"gold_edge_count={report.gold_edge_count}")
+    print(f"predicted_edge_count={report.predicted_edge_count}")
+    print(f"true_positives={report.true_positives}")
+    print(f"false_positives={report.false_positives}  # extra edges")
+    print(f"false_negatives={report.false_negatives}  # missing edges")
+    print(f"precision={report.precision:.4f}")
+    print(f"recall={report.recall:.4f}")
+    print(f"f1={report.f1:.4f}")
+    print(f"order_independent={report.order_independent}")
+    for item in report.parse_failures:
+        print(f"  [parse_failures] {item}")
+    for item in report.false_positive_edges:
+        print(f"  [false_positives] {item}")
+    for item in report.false_negative_edges:
+        print(f"  [false_negatives] {item}")
+    for item in report.order_mismatches:
+        print(f"  [order_mismatches] {item}")
+    print("status=PASS" if report.ok else "status=FAIL")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "mode",
-        choices=("parsing", "dedup"),
+        choices=("parsing", "dedup", "hierarchy"),
         help="validation stage to run",
     )
     parser.add_argument(
@@ -234,6 +410,18 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=Path("data/eval"),
         help="directory of eval .txt files",
+    )
+    parser.add_argument(
+        "--order",
+        choices=("natural", "reverse", "child_first", "random"),
+        default="natural",
+        help="ingestion order for hierarchy validation",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=1,
+        help="RNG seed used when --order=random",
     )
     args = parser.parse_args(argv)
 
@@ -245,6 +433,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode == "dedup":
         report = validate_dedup(args.data_dir)
         _print_dedup_report(report)
+        return 0 if report.ok else 1
+
+    if args.mode == "hierarchy":
+        report = validate_hierarchy(args.data_dir, order=args.order, seed=args.seed)
+        _print_hierarchy_report(report)
         return 0 if report.ok else 1
 
     raise SystemExit(f"unsupported mode: {args.mode}")
