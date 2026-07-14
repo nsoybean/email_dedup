@@ -1,0 +1,32 @@
+# Applied by `make ingest` after substituting nothing — loads image-baked data/test.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loader-test
+  namespace: email-dedup
+  labels:
+    app: loader
+    corpus: test
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: loader
+        corpus: test
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: loader
+          image: email-dedup:local
+          imagePullPolicy: Never
+          command:
+            - python
+            - scripts/load_directory.py
+            - data/test
+            - --base-url
+            - http://api:8000
+          envFrom:
+            - configMapRef:
+                name: email-dedup-config

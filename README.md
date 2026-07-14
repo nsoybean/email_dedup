@@ -4,44 +4,62 @@ Prototype for the email ingestion and deduplication assignment.
 
 See `DESIGN.md` for decisions and tradeoffs, `LEARNING.md` for FAQs.
 
-## Run
+## Run (kind)
 
-Requires Docker Desktop. One app image runs migrate, FastAPI, and three workers
-against PostgreSQL. Load **`data/test`** (opaque filenames = document IDs only).
+Primary demo: a local [kind](https://kind.sigs.k8s.io/) Kubernetes cluster with
+Postgres, migrate Job, API, and a **3-replica worker** Deployment. Load opaque
+**`data/test`** files (filenames = document IDs only). Corpus is baked into the
+image for loader/evaluator Jobs.
+
+**Prerequisites:** Docker Desktop, [`kind`](https://kind.sigs.k8s.io/docs/user/quick-start/#installation),
+`kubectl`, `make`.
+
+If Compose is already running, stop it first so ports/resources do not clash:
+`docker compose down`.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-
-docker compose up --build -d
-python scripts/load_directory.py data/test --base-url http://127.0.0.1:8000
+make cluster-up
+make ingest
+make port-forward
+# OpenAPI: http://127.0.0.1:8000/docs
 ```
 
-| | |
-|---|---|
-| OpenAPI | [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) |
-| Health | [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) |
-| Status | `docker compose ps` |
-| Worker logs | `docker compose logs worker-1 --tail 20` |
-| Stop | `docker compose down` |
+Other terminals:
 
-| Service | Role |
+```bash
+make status
+make evaluate          # in-cluster scoring vs data/eval (expect status=PASS)
+make ingest-eval       # optional: also load data/eval through workers
+make cluster-down
+```
+
+| Make target | What it does |
 |---|---|
-| `postgres` | Persistence + job queue (host **5433**) |
+| `cluster-up` | Create kind cluster, build/load `email-dedup:local`, apply `k8s/`, wait ready |
+| `ingest` | Job: submit `data/test` to the API |
+| `ingest-eval` | Job: submit `data/eval` |
+| `evaluate` | Job: run `scripts/evaluate.py` modes (in-memory; needs no ingest) |
+| `port-forward` | `svc/api` → `localhost:8000` |
+| `status` | Pods / Deployments / Jobs |
+| `cluster-down` | Delete the kind cluster |
+
+| Workload | Role |
+|---|---|
+| `postgres` | Persistence + job queue |
 | `migrate` | One-shot `alembic upgrade head` |
 | `api` | Accept submissions; expose lookups |
-| `worker-1/2/3` | Parallel processing: claim jobs, parse threads, dedup into canonicals |
+| `worker` (3 replicas) | Parallel claim / parse / dedup into canonicals |
 
-The three workers pull from the same Postgres queue (`FOR UPDATE SKIP LOCKED`)
-so documents are processed concurrently. Worker count is fixed in `compose.yaml`
-(three named services); change it by adding or removing a `worker-N` block.
+Workers share one Postgres queue (`FOR UPDATE SKIP LOCKED`). Scale with
+`kubectl scale deployment/worker -n email-dedup --replicas=N`.
 
-Images: `postgres:16-alpine`; `email-dedup:local` for migrate, API, and workers.
+Images: `postgres:16-alpine`; `email-dedup:local` for migrate, API, workers,
+loader, and evaluate.
 
 ### API
 
-Interactive OpenAPI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+Interactive OpenAPI (after `make port-forward`):
+[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -52,11 +70,25 @@ Interactive OpenAPI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 | `GET` | `/canonicals/{canonical_id}/documents` | Canonical → raw docs |
 | `GET` | `/canonicals/{canonical_id}/relations` | Direct parent + children |
 
+## Fallback: Docker Compose
+
+Same image and three workers, without Kubernetes:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+docker compose up --build -d
+python scripts/load_directory.py data/test --base-url http://127.0.0.1:8000
+# OpenAPI: http://127.0.0.1:8000/docs
+docker compose down
+```
+
 ## Evaluate (`data/eval`)
 
 Gold labels live in eval filenames for scoring only — never used by the app or
-loader. Expect every run to end with `status=PASS` (and hierarchy
-`order_independent=True`).
+loader. Prefer `make evaluate` on kind. Locally:
 
 ```bash
 source .venv/bin/activate
@@ -68,6 +100,8 @@ python scripts/evaluate.py hierarchy --data-dir data/eval --order child_first
 python scripts/evaluate.py hierarchy --data-dir data/eval --order random --seed 1
 ```
 
+Expect every run to end with `status=PASS` (and hierarchy `order_independent=True`).
+
 | Mode | Measures |
 |---|---|
 | `parsing` | Parse failures, count vs gold depth, variant sequences, parent rule — [details](DESIGN.md#parsing-validation-scriptsevaluatepy-parsing) |
@@ -75,8 +109,6 @@ python scripts/evaluate.py hierarchy --data-dir data/eval --order random --seed 
 | `hierarchy` | Edge F1; order-independence — [details](DESIGN.md#hierarchy-validation-scriptsevaluatepy-hierarchy) |
 
 Gold labels: [DESIGN.md](DESIGN.md#eval-filenames-are-gold-labels-only).
-
-Example (abbreviated):
 
 ```text
 === parsing ===

@@ -202,6 +202,16 @@ Walking the whole ancestry would be recursive/app-side, and is out of scope.
 - One Docker image; Compose runs migrate (once), API, and three worker containers
   with Postgres health + migrate completion gates.
 
+### Local Kubernetes (kind)
+
+- **kind** is the primary assignment demonstration: same `email-dedup:local` image
+  as Deployments/Jobs on a local Kubernetes API (not a second application).
+- Compose remains a fallback for reviewers without `kind`/`kubectl`.
+- Worker concurrency in kind is a Deployment with `replicas: 3` (scale via
+  `kubectl scale`), still claiming from Postgres with `SKIP LOCKED`.
+- Loader/evaluator Jobs use the corpus copied into the image. Production would
+  submit from object storage or an event source instead of baking files in.
+
 ### Persistence
 
 PostgreSQL tables:
@@ -238,6 +248,8 @@ payload so workers need no shared filesystem.
 | Full content payload on `ingestion_jobs` | Object store (S3/GCS) + queue object keys only |
 | Observed-only parents (no placeholders) | Optional synthetic ancestor rows if product needs them earlier |
 | Direct parent/child API only | Full ancestry / path walk API if required |
+| Corpus baked into exercise image for Jobs | External object store / event feed for ingestion |
+| kind local cluster for K8s demo | Shared/cloud cluster with real ingress and secrets mgmt |
 
 ## Assumptions
 

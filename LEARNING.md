@@ -167,3 +167,29 @@ A: Same Dockerfile; Compose overrides `command` (`uvicorn` vs
 **Q: How does Compose avoid “started before DB ready”?**  
 A: Postgres `healthcheck` + migrate `service_completed_successfully` + API/worker
 `depends_on` those conditions (not just container start).
+
+---
+
+## Phase 9 — kind Kubernetes
+
+**Built:** `k8s/` manifests, Makefile (`cluster-up` / ingest / evaluate /
+`cluster-down`), kind-first README; Phase 8 packaging deferred.
+
+### FAQ
+
+**Q: Why kind if Compose already has three workers?**  
+A: Compose shows concurrent processing. kind shows the same app on a real
+Kubernetes API (Deployments, Jobs, Services, probes) — the assignment’s K8s
+requirement. They are alternatives, not meant to run together.
+
+**Q: Compose vs kind — conflicting?**  
+A: No. Same image and domain logic. Stop Compose before `make cluster-up` if
+both would fight over Docker resources.
+
+**Q: Why is the worker a Deployment with replicas=3?**  
+A: Kubernetes scales identical pods. Each pod runs `python -m email_dedup.worker`
+and claims via `SKIP LOCKED`. Change count with `kubectl scale`.
+
+**Q: Why bake `data/` into the image?**  
+A: Loader/evaluator Jobs need files without host volume mounts. Production would
+pull from object storage or an event source instead.

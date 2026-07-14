@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: email-dedup
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: migrate
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -U email -d email_dedup; do
+                echo "waiting for postgres..."
+                sleep 2
+              done
+      containers:
+        - name: migrate
+          image: email-dedup:local
+          imagePullPolicy: Never
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: email-dedup-config
+            - secretRef:
+                name: email-dedup-secret

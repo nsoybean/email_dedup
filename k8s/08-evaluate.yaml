@@ -1,0 +1,32 @@
+# In-memory scoring against packaged data/eval (does not require Postgres ingest).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: evaluate
+  namespace: email-dedup
+  labels:
+    app: evaluate
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: evaluate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: evaluate
+          image: email-dedup:local
+          imagePullPolicy: Never
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              python scripts/evaluate.py parsing --data-dir data/eval
+              python scripts/evaluate.py dedup --data-dir data/eval
+              python scripts/evaluate.py hierarchy --data-dir data/eval
+              python scripts/evaluate.py hierarchy --data-dir data/eval --order reverse
+              python scripts/evaluate.py hierarchy --data-dir data/eval --order child_first
+              python scripts/evaluate.py hierarchy --data-dir data/eval --order random --seed 1
