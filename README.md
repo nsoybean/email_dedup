@@ -8,11 +8,11 @@ See `DESIGN.md` for decisions and tradeoffs, `LEARNING.md` for FAQs.
 
 Primary demo: a local [kind](https://kind.sigs.k8s.io/) Kubernetes cluster with
 Postgres, migrate Job, API, and a **3-replica worker** Deployment. Ingest
-**`data/test`**: each filename is the document ID; the service does not parse
+`data/test`: each filename is the document ID; the service does not parse
 filename structure. The corpus is included in the image for loader and evaluator
 Jobs.
 
-**Prerequisites:** Docker Desktop, [`kind`](https://kind.sigs.k8s.io/docs/user/quick-start/#installation),
+**Prerequisites:** Docker Desktop, `[kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)`,
 `kubectl`, `make`.
 
 If Compose is already running, stop it first so ports/resources do not clash:
@@ -29,45 +29,50 @@ Other terminals:
 
 ```bash
 make status
-make evaluate          # score data/eval in-memory (expect status=PASS)
+make evaluate          # score parse / dedup / hierarchy vs data/eval (expect PASS)
 make cluster-down
 ```
 
-| Make target | What it does |
-|---|---|
-| `cluster-up` | Create kind cluster, build/load `email-dedup:local`, apply `k8s/`, wait ready |
-| `ingest` | Job: submit `data/test` to the API |
-| `evaluate` | Job: run `scripts/evaluate.py` on `data/eval` (in-memory; not loaded into the DB) |
-| `port-forward` | `svc/api` → `localhost:8000` |
-| `status` | Pods / Deployments / Jobs |
-| `cluster-down` | Delete the kind cluster |
 
-| Workload | Role |
-|---|---|
-| `postgres` | Persistence + job queue |
-| `migrate` | One-shot `alembic upgrade head` |
-| `api` | Accept submissions; expose lookups |
+| Make target    | What it does                                                                  |
+| -------------- | ----------------------------------------------------------------------------- |
+| `cluster-up`   | Create kind cluster, build/load `email-dedup:local`, apply `k8s/`, wait ready |
+| `ingest`       | Job: submit `data/test` to the API                                            |
+| `port-forward` | `svc/api` → `localhost:8000`                                                  |
+| `status`       | Show all Pods / Deployments / Jobs                                            |
+| `evaluate`     | Score parse / dedup / hierarchy against `data/eval` (in-memory)               |
+| `cluster-down` | Delete the kind cluster                                                       |
+
+
+
+| Workload              | Role                                           |
+| --------------------- | ---------------------------------------------- |
+| `postgres`            | Persistence + job queue                        |
+| `migrate`             | One-shot `alembic upgrade head`                |
+| `api`                 | Accept submissions; expose lookups             |
 | `worker` (3 replicas) | Parallel claim / parse / dedup into canonicals |
+
 
 Workers share one Postgres queue (`FOR UPDATE SKIP LOCKED`). Scale with
 `kubectl scale deployment/worker -n email-dedup --replicas=N`.
-
-Images: `postgres:16-alpine`; `email-dedup:local` for migrate, API, workers,
-loader, and evaluate.
 
 ### API
 
 Interactive OpenAPI (after `make port-forward`):
 [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-| Method | Path | Purpose |
-|---|---|---|
-| `GET` | `/health` | Liveness + DB ping |
-| `POST` | `/documents` | Submit `{document_id, content}` → 202 (409 on conflict) |
-| `GET` | `/jobs/{job_id}` | Job status |
-| `GET` | `/documents/{doc_id}/canonical` | Raw doc → canonical |
-| `GET` | `/canonicals/{canonical_id}/documents` | Canonical → raw docs |
-| `GET` | `/canonicals/{canonical_id}/relations` | Direct parent + children |
+
+| Method | Path                                   | Purpose                                                 |
+| ------ | -------------------------------------- | ------------------------------------------------------- |
+| `GET`  | `/health`                              | Liveness + DB ping                                      |
+| `POST` | `/documents`                           | Submit `{document_id, content}` → 202 (409 on conflict) |
+| `GET`  | `/jobs/{job_id}`                       | Job status                                              |
+| `GET`  | `/documents/{doc_id}/canonical`        | Raw doc → canonical                                     |
+| `GET`  | `/canonicals/{canonical_id}/documents` | Canonical → raw docs                                    |
+| `GET`  | `/canonicals/{canonical_id}/relations` | Direct parent + children                                |
+
+
+
 
 ## Fallback: Docker Compose
 
@@ -83,6 +88,8 @@ python scripts/load_directory.py data/test --base-url http://127.0.0.1:8000
 # OpenAPI: http://127.0.0.1:8000/docs
 docker compose down
 ```
+
+
 
 ## Evaluate (`data/eval`)
 
@@ -101,11 +108,13 @@ python scripts/evaluate.py hierarchy --data-dir data/eval --order random --seed 
 
 Expect every run to end with `status=PASS` (and hierarchy `order_independent=True`).
 
-| Mode | Measures |
-|---|---|
-| `parsing` | Parse failures, count vs gold depth, variant sequences, parent rule — [details](DESIGN.md#parsing-validation-scriptsevaluatepy-parsing) |
-| `dedup` | Pairwise precision / recall / F1 — [details](DESIGN.md#dedup-validation-scriptsevaluatepy-dedup) |
-| `hierarchy` | Edge F1; order-independence — [details](DESIGN.md#hierarchy-validation-scriptsevaluatepy-hierarchy) |
+
+| Mode        | Measures                                                                                                                                |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `parsing`   | Parse failures, count vs gold depth, variant sequences, parent rule — [details](DESIGN.md#parsing-validation-scriptsevaluatepy-parsing) |
+| `dedup`     | Pairwise precision / recall / F1 — [details](DESIGN.md#dedup-validation-scriptsevaluatepy-dedup)                                        |
+| `hierarchy` | Edge F1; order-independence — [details](DESIGN.md#hierarchy-validation-scriptsevaluatepy-hierarchy)                                     |
+
 
 Gold labels: [DESIGN.md](DESIGN.md#eval-filenames-are-gold-labels-only).
 
@@ -120,6 +129,8 @@ status=PASS
 order_independent=True
 status=PASS
 ```
+
+
 
 ## Tests
 
